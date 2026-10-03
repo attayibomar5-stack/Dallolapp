@@ -1,0 +1,229 @@
+package com.dallol.app;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Bundle;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class MainActivity extends Activity {
+
+    private LinearLayout listeProduits;
+    private TextView tvTotal;
+    private List<Produit> panier = new ArrayList<>();
+    private List<Produit> stock = new ArrayList<>();
+    private static final String NUM_WHATSAPP = "+22796594385";
+    private static final String CODE_ADMIN = "2020";
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        listeProduits = findViewById(R.id.liste_produits);
+        tvTotal = findViewById(R.id.tv_total);
+        Button btnCommander = findViewById(R.id.btn_commander);
+        Button btnVider = findViewById(R.id.btn_vider);
+        Button btnAdmin = findViewById(R.id.btn_admin);
+
+        chargerProduitsDefaut();
+        afficherStock();
+
+        btnCommander.setOnClickListener(v -> validerCommande());
+        btnVider.setOnClickListener(v -> viderPanier());
+        btnAdmin.setOnClickListener(v -> verifierCodeAdmin());
+    }
+
+    private void chargerProduitsDefaut() {
+        stock.add(new Produit("Bidon 20L", 1500));
+        stock.add(new Produit("Bouteille 1.5L", 300));
+        stock.add(new Produit("Bouteille 50cl", 150));
+        stock.add(new Produit("Caisse complète", 3500));
+    }
+
+    private void afficherStock() {
+        listeProduits.removeAllViews();
+        for (Produit p : stock) {
+            View ligne = getLayoutInflater().inflate(R.layout.item_produit, null);
+            TextView nom = ligne.findViewById(R.id.nom_produit);
+            TextView prix = ligne.findViewById(R.id.prix_produit);
+            Button ajouter = ligne.findViewById(R.id.btn_ajouter_panier);
+
+            nom.setText(p.nom);
+            prix.setText(p.prix + " FCFA");
+            ajouter.setOnClickListener(v -> {
+                panier.add(p);
+                mettreAJourTotal();
+                Toast.makeText(this, "✅ " + p.nom + " ajouté", Toast.LENGTH_SHORT).show();
+            });
+            listeProduits.addView(ligne);
+        }
+    }
+
+    private void mettreAJourTotal() {
+        int total = 0;
+        for (Produit p : panier) total += p.prix;
+        tvTotal.setText("Total : " + total + " FCFA");
+    }
+
+    private void viderPanier() {
+        panier.clear();
+        mettreAJourTotal();
+        Toast.makeText(this, "🛒 Panier vidé", Toast.LENGTH_SHORT).show();
+    }
+
+    private void verifierCodeAdmin() {
+        final EditText champ = new EditText(this);
+        champ.setHint("Code administrateur");
+        new AlertDialog.Builder(this)
+            .setTitle("🔐 Code secret")
+            .setView(champ)
+            .setPositiveButton("Valider", (d, w) -> {
+                if (CODE_ADMIN.equals(champ.getText().toString())) {
+                    menuAdmin();
+                } else {
+                    Toast.makeText(this, "❌ Code incorrect", Toast.LENGTH_SHORT).show();
+                }
+            })
+            .setNegativeButton("Annuler", null)
+            .show();
+    }
+
+    private void menuAdmin() {
+        String[] options = {"Ajouter un produit", "Modifier un produit", "Supprimer un produit"};
+        new AlertDialog.Builder(this)
+            .setTitle("⚙️ Gestion")
+            .setItems(options, (d, choix) -> {
+                if (choix == 0) ajouterProduit();
+                else if (choix == 1) modifierProduit();
+                else supprimerProduit();
+            })
+            .show();
+    }
+
+    private void ajouterProduit() {
+        View form = getLayoutInflater().inflate(R.layout.form_produit, null);
+        EditText nom = form.findViewById(R.id.et_nom);
+        EditText prix = form.findViewById(R.id.et_prix);
+        new AlertDialog.Builder(this)
+            .setTitle("➕ Nouveau produit")
+            .setView(form)
+            .setPositiveButton("Enregistrer", (d, w) -> {
+                String n = nom.getText().toString().trim();
+                String p = prix.getText().toString().trim();
+                if (!n.isEmpty() && !p.isEmpty()) {
+                    stock.add(new Produit(n, Integer.parseInt(p)));
+                    afficherStock();
+                    Toast.makeText(this, "✅ Ajouté !", Toast.LENGTH_SHORT).show();
+                }
+            })
+            .setNegativeButton("Annuler", null)
+            .show();
+    }
+
+    private void modifierProduit() {
+        String[] noms = new String[stock.size()];
+        for (int i = 0; i < stock.size(); i++) noms[i] = stock.get(i).nom;
+        new AlertDialog.Builder(this)
+            .setTitle("✏️ Modifier")
+            .setItems(noms, (d, pos) -> {
+                Produit p = stock.get(pos);
+                View form = getLayoutInflater().inflate(R.layout.form_produit, null);
+                EditText nom = form.findViewById(R.id.et_nom);
+                EditText prix = form.findViewById(R.id.et_prix);
+                nom.setText(p.nom);
+                prix.setText(String.valueOf(p.prix));
+                new AlertDialog.Builder(this)
+                    .setTitle("Modifier")
+                    .setView(form)
+                    .setPositiveButton("Enregistrer", (di, w) -> {
+                        p.nom = nom.getText().toString().trim();
+                        p.prix = Integer.parseInt(prix.getText().toString().trim());
+                        afficherStock();
+                        Toast.makeText(this, "✅ Modifié !", Toast.LENGTH_SHORT).show();
+                    })
+                    .show();
+            })
+            .show();
+    }
+
+    private void supprimerProduit() {
+        String[] noms = new String[stock.size()];
+        for (int i = 0; i < stock.size(); i++) noms[i] = stock.get(i).nom;
+        new AlertDialog.Builder(this)
+            .setTitle("🗑️ Supprimer")
+            .setItems(noms, (d, pos) -> {
+                stock.remove(pos);
+                afficherStock();
+                Toast.makeText(this, "✅ Supprimé !", Toast.LENGTH_SHORT).show();
+            })
+            .show();
+    }
+
+    private void validerCommande() {
+        if (panier.isEmpty()) {
+            Toast.makeText(this, "⚠️ Ajoutez des produits d'abord !", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        View form = getLayoutInflater().inflate(R.layout.form_commande, null);
+        EditText nomClient = form.findViewById(R.id.et_nom_client);
+        EditText telClient = form.findViewById(R.id.et_tel_client);
+        EditText position = form.findViewById(R.id.et_position);
+
+        new AlertDialog.Builder(this)
+            .setTitle("📝 Votre commande")
+            .setView(form)
+            .setPositiveButton("📤 Envoyer WhatsApp", (d, w) -> {
+                String n = nomClient.getText().toString().trim();
+                String t = telClient.getText().toString().trim();
+                String pos = position.getText().toString().trim();
+
+                if (n.isEmpty() || t.isEmpty()) {
+                    Toast.makeText(this, "⚠️ Remplissez nom et téléphone", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                StringBuilder msg = new StringBuilder("📩 NOUVELLE COMMANDE\n\n");
+                msg.append("Nom : ").append(n).append("\n");
+                msg.append("Téléphone : ").append(t).append("\n");
+                msg.append("Position : ").append(pos.isEmpty() ? "Non précisée" : pos).append("\n\n");
+                msg.append("Produits :\n");
+                int total = 0;
+                for (Produit p : panier) {
+                    msg.append("- ").append(p.nom).append(" : ").append(p.prix).append(" FCFA\n");
+                    total += p.prix;
+                }
+                int livraison = 300;
+                msg.append("\nFrais de livraison : ").append(livraison).append(" FCFA");
+                msg.append("\n💰 TOTAL : ").append(total + livraison).append(" FCFA");
+
+                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(
+                    "https://wa.me/" + NUM_WHATSAPP + "?text=" + Uri.encode(msg.toString())
+                ));
+                startActivity(intent);
+                panier.clear();
+                mettreAJourTotal();
+            })
+            .setNegativeButton("Annuler", null)
+            .show();
+    }
+
+    static class Produit {
+        String nom;
+        int prix;
+        Produit(String n, int p) {
+            nom = n;
+            prix = p;
+        }
+    }
+}
