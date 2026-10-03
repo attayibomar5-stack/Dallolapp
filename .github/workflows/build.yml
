@@ -1,0 +1,27 @@
+name: Compiler mon application
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  compiler:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer mon code
+        uses: actions/checkout@v4
+
+      - name: Installer Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Compiler l'application
+        run: ./gradlew bundleRelease
+
+      - name: Récupérer mon fichier .aab
+        uses: actions/upload-artifact@v4
+        with:
+          name: DALLOL-Application
+          path: app/build/outputs/bundle/release/app-release.aab
